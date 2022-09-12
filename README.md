@@ -1,4 +1,2 @@
-# Slippi Situation Parser
-Parses Slippi files into sequences of higher-level-options, 
-such as ledgedashes, wavedashes, jumping aerials, etc.
-Work in progress.
+# Slippi Database Creator
+Takes parsed Slippi files and creates an sqlite database.
