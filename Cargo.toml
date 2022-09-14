@@ -1,8 +1,8 @@
 [package]
-name = "slippi_database_creator"
+name = "slippi_database"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 rusqlite = { version = "0.28.0", features = ["bundled"] }
-slippi_situation_parser = { path = "./../slippi_situation_parser/" }
+slippi_situation_parser = { git = "https://github.com/alexanderharrison/slippi-situation-parser" }
