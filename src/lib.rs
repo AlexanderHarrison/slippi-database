@@ -1,3 +1,5 @@
+use rusqlite::params;
+
 // tablebase
 // each row contains:
 //
@@ -76,7 +78,6 @@ pub fn add_rows_to_db<'a, 'b, R>(rows: R, db: &mut Connection) where
             print!("\r({})", i+1);
         }
 
-        use rusqlite::params;
         st.execute(
             params![
                 row.init_pos_x ,
@@ -118,12 +119,67 @@ pub fn init_or_open_db(path: &std::path::Path) -> Connection {
                 InitAction MEDIUMINT,
                 RespAction MEDIUMINT,
                 Delay      MEDIUMINT
-            )", 
+            );", 
             [],
         ).unwrap();
 
         connection
     }
+}
+    
+pub struct QueryResponce {
+    pub init_action_counts: [u32; HighLevelAction::VARIANT_COUNT as _],
+    pub resp_action_counts: [u32; HighLevelAction::VARIANT_COUNT as _],
+}
+
+pub fn query<'a, 'b>(db: &'a Connection, row: &'b DBRow) -> Option<Box<QueryResponce>> {
+    let resp = Box::new(QueryResponce {
+        init_action_counts: [0; HighLevelAction::VARIANT_COUNT as _],
+        resp_action_counts: [0; HighLevelAction::VARIANT_COUNT as _],
+    });
+
+    query_preallocated(resp, db, row)
+}
+
+/// assumes resp is zeroed
+pub fn query_preallocated<'a, 'b>(mut qresp: Box<QueryResponce>, db: &'a Connection, row: &'b DBRow) -> Option<Box<QueryResponce>> {
+    let mut stmt = db.prepare("SELECT InitAction, RespAction FROM Fox_Fox where 
+        InitPosx = ?1
+        AND InitPosy  = ?2
+        AND InitVelx  = ?3
+        AND InitVely  = ?4
+        AND RespPosx  = ?5
+        AND RespPosy  = ?6
+        AND RespVelx  = ?7
+        AND RespVely  = ?8
+        AND InitState = ?9
+        AND RespState = ?10
+        AND Delay = ?11
+    ;").ok()?;
+
+    let mut rows = stmt.query(params![
+        row.init_pos_x,
+        row.init_pos_y,
+        row.init_vel_x,
+        row.init_vel_y,
+        row.resp_pos_x,
+        row.resp_pos_y,
+        row.resp_vel_x,
+        row.resp_vel_y,
+        row.init_state,
+        row.resp_state,
+        row.delay     ,
+    ]).ok()?;
+    
+    assert!(std::mem::size_of::<HighLevelAction>() == 1);
+    while let Some(r) = rows.next().ok()? {
+        let init_action = r.get::<_, u8>("InitAction").unwrap();
+        qresp.init_action_counts[init_action as usize] += 1;
+        let resp_action = r.get::<_, u8>("RespAction").unwrap();
+        qresp.resp_action_counts[resp_action as usize] += 1;
+    }
+
+    Some(qresp)
 }
 
 pub fn generate_rows_from_game<'a>(mut player_actions: &'a [Action], mut opponent_actions: &'a [Action]) -> Vec<RowRef<'a>> {
@@ -171,8 +227,8 @@ impl<'a> Into<DBRow> for RowRef<'a> {
             resp_vel_y : (resp.initial_velocity.y * 10.0).round() as u16,
             init_state : init.actionable_state as u8,
             resp_state : resp.actionable_state as u8,
-            init_action: unsafe { std::mem::transmute::<_, u16>(init.action_taken) },
-            resp_action: unsafe { std::mem::transmute::<_, u16>(resp.action_taken) },
+            init_action: init.action_taken.into_u8() as u16,
+            resp_action: resp.action_taken.into_u8() as u16,
             delay: delay as u16,
         }
     }
@@ -197,8 +253,8 @@ impl Into<DBRow> for Row {
             resp_vel_y : (resp.initial_velocity.y * 10.0).round() as u16,
             init_state : init.actionable_state as u8,
             resp_state : resp.actionable_state as u8,
-            init_action: unsafe { std::mem::transmute::<_, u16>(init.action_taken) },
-            resp_action: unsafe { std::mem::transmute::<_, u16>(resp.action_taken) },
+            init_action: init.action_taken.into_u8() as u16,
+            resp_action: resp.action_taken.into_u8() as u16,
             delay: delay as u16,
         }
     }
