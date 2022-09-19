@@ -99,6 +99,14 @@ pub fn add_rows_to_db<'a, 'b, R>(rows: R, db: &mut Connection) where
     println!();
 }
 
+pub fn open_db(path: &std::path::Path) -> Option<Connection> {
+    if path.exists() {
+        Some(Connection::open(path).expect("error opening database"))
+    } else {
+        None
+    }
+}
+
 pub fn init_or_open_db(path: &std::path::Path) -> Connection {
     if path.exists() {
         Connection::open(path).expect("error opening database")
