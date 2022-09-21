@@ -33,7 +33,7 @@ macro_rules! unwrap_or {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct RowRef<'a> {
     pub opponent_initiation: &'a Action,
     pub player_response: &'a Action,
